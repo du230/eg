@@ -1,0 +1,322 @@
+{
+  "name": "metrics",
+  "version": "4.0.0",
+  "imports": {
+    "std/": "https://deno.land/std@0.205.0/",
+    "x/": "https://deno.land/x/",
+    "y/": "https://esm.sh/",
+    "gh/": "https://esm.sh/gh/",
+    "@engine/": "./source/engine/",
+    "@plugins/": "./source/plugins/",
+    "@processors/": "./source/processors/",
+    "@run/": "./source/run/"
+  },
+  "lint": {
+    "rules": {
+      "include": [
+        "ban-untagged-todo",
+        "default-param-last",
+        "eqeqeq",
+        "no-const-assign",
+        "no-eval",
+        "no-sparse-arrays",
+        "no-sync-fn-in-async-fn",
+        "no-throw-literal"
+      ]
+    },
+    "exclude": [
+      "source/run/serve/static/app.js"
+    ]
+  },
+  "fmt": {
+    "lineWidth": 200,
+    "semiColons": false,
+    "exclude": [
+      ".coverage",
+      ".deno-make.json",
+      "source/run/serve/static/app.js",
+      "CODE_OF_CONDUCT.md"
+    ]
+  },
+  "tasks": {
+    "make": "deno run --allow-env --allow-read --allow-write=.deno-make.json --allow-run=deno https://deno.land/x/make@1.2.0/mod.ts $0"
+  },
+  "+tasks": {
+    "run": {
+      "description": "🚀 Run metrics",
+      "task": [
+        "deno task make get:browser &&",
+        "export CHROME_BIN=$(deno task make get:browser) &&",
+        "export CACHE_DIRECTORY=$(deno task make get:cache) &&",
+        "deno run source/run/mod.ts $<*>"
+      ],
+      "deno": {
+        "run": {
+          "unstable": ["kv", "http"],
+          "permissions": {
+            "net": [
+              // Server bindings
+              "0.0.0.0",
+              "127.0.0.1",
+              "localhost",
+              // Packages
+              "esm.sh",
+              "deno.land/x",
+              "deno.land/std",
+              "plugins.dprint.dev/typescript-0.88.4.wasm",
+              "raw.githubusercontent.com/github-linguist/linguist/master/lib/linguist/languages.yml",
+              // GitHub API
+              "api.github.com",
+              // Github OAuth
+              "github.com/login/oauth",
+              // plugins/rss
+              "news.ycombinator.com/rss",
+              // processors/render.gemojis
+              "api.github.com/emojis",
+              // processors/render.twemojis
+              "cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets"
+            ],
+            "run": [
+              "docker",
+              "$CHROME_BIN"
+            ],
+            "read": [
+              "$PWD",
+              "$TMP",
+              "$CACHE_DIRECTORY",
+              ".cache",
+              "deno.jsonc",
+              "metrics.config.yml"
+            ],
+            "write": [
+              "$TMP",
+              "$HOME/.config/chromium/SingletonLock"
+            ],
+            "env": true
+          }
+        }
+      }
+    },
+    "test": {
+      "description": "🧪 Run tests and collect coverage",
+      "task": [
+        "deno task make get:browser &&",
+        "export CHROME_BIN=$(deno task make get:browser) &&",
+        "rm .coverage -rf &&",
+        "deno test source"
+      ],
+      "deno": {
+        "test": {
+          "doc": true,
+          "seed": 0,
+          "coverage": ".coverage",
+          "traceOps": true,
+          "unstable": ["kv", "http"],
+          "modules": {
+            "check": false
+          },
+          "permissions": {
+            "net": [
+              // Server bindings
+              "0.0.0.0",
+              "127.0.0.1",
+              "localhost",
+              // Packages
+              "esm.sh",
+              "deno.land/x",
+              "deno.land/std",
+              "plugins.dprint.dev/typescript-0.88.4.wasm",
+              "raw.githubusercontent.com/github-linguist/linguist/master/lib/linguist/languages.yml",
+              // processors/render.gemojis
+              "api.github.com/emojis",
+              // processors/render.twemojis
+              "cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets",
+              // Testing
+              "example.com",
+              "loremflickr.com",
+              // Browser downloads
+              "googlechromelabs.github.io/chrome-for-testing",
+              "edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing"
+            ],
+            "run": [
+              "deno",
+              "docker",
+              "$CHROME_BIN"
+            ],
+            "read": [
+              "$PWD",
+              "$TMP",
+              ".cache"
+            ],
+            "write": [
+              ".test",
+              ".cache",
+              "$TMP",
+              "$HOME/.config/chromium/SingletonLock"
+            ],
+            "env": true
+          }
+        }
+      }
+    },
+    "coverage": {
+      "description": "🔬 Print coverage report",
+      "task": "deno coverage .coverage",
+      "deno": {
+        "coverage": {
+          "exclude": "/dom/"
+        }
+      }
+    },
+    "cache": {
+      "description": "📦 Cache dependencies",
+      "task": [
+        "rm -rf deno.lock &&",
+        "deno cache source/run/**/*.ts"
+      ],
+      "deno": {
+        "cache": {
+          "modules": {
+            "reload": true
+          }
+        }
+      }
+    },
+    "lint": {
+      "description": "🔎 Format and lint code",
+      "task": [
+        "deno fmt &&",
+        "deno lint"
+        //"deno check **/*.ts"
+      ],
+      "flags": {
+        "check": {
+          "description": "Check only"
+        }
+      }
+    },
+    "docker": {
+      "description": "🐋 Build docker image",
+      "task": "docker build --compress --tag $<tag> --file $<dockerfile> .",
+      "flags": {
+        "tag": {
+          "default": "metrics:dev",
+          "description": "Docker image tag"
+        },
+        "dockerfile": {
+          "default": "Dockerfile",
+          "description": "Dockerfile path"
+        }
+      }
+    },
+    "docker:run": {
+      "description": "🐋 Run docker image interactively",
+      "task": [
+        "docker run --rm --interactive --tty --entrypoint='' --volume //var/run/docker.sock:/var/run/docker.sock --volume $PWD/source:/metrics/source --volume $PWD/deno.jsonc:/metrics/deno.jsonc --user $<user> $<tag> $<command>"
+      ],
+      "flags": {
+        "tag": {
+          "default": "metrics:dev",
+          "description": "Docker image tag"
+        },
+        "user": {
+          "default": "metrics",
+          "description": "User to run command as"
+        },
+        "command": {
+          "default": "sh -c 'sudo chgrp docker /var/run/docker.sock && sudo rm /etc/sudoers.d/metrics && sh'",
+          "description": "Command to execute"
+        }
+      }
+    },
+    "ci:lint": {
+      "description": "🤖 Lint code (CI)",
+      "task": "deno task make lint --check"
+    },
+    "ci:test": {
+      "description": "🤖 Build container and run tests and coverage inside the image (CI)",
+      "task": [
+        "deno task make docker &&",
+        "docker run --rm --entrypoint='' --volume //var/run/docker.sock:/var/run/docker.sock metrics:dev sh -c 'sudo chgrp docker /var/run/docker.sock && sudo rm /etc/sudoers.d/metrics && deno task make test && deno task make coverage'"
+      ]
+    },
+    "deploy:deno": {
+      "description": "🦕 Deploy metrics on https://deno.com/deploy",
+      "task": [
+        "export CACHE_DIRECTORY=$(deno task make get:cache) &&",
+        "export DENO_DEPLOY_TOKEN=$(deno eval --env \"console.log(Deno.env.get('DENO_DEPLOY_TOKEN'))\") &&",
+        "deno run source/run/serve/imports.ts &&",
+        "deployctl deploy --project=$<project> --include=source,deno.jsonc --prod source/run/mod.ts"
+      ],
+      "flags": {
+        "project": {
+          "default": "metrics",
+          "description": "Deno Deploy project name"
+        }
+      },
+      "deno": {
+        "eval": {
+          "env": true
+        },
+        "run": {
+          "permissions": {
+            "read": [
+              "$PWD",
+              "$CACHE_DIRECTORY"
+            ],
+            "write": [
+              "source/run/serve",
+              "source/run/serve/imported.ts"
+            ],
+            "env": true
+          }
+        }
+      }
+    },
+    "get:browser": {
+      "description": "🏗️ Get browser path (and install it if necessary)",
+      "task": [
+        "deno eval \"$ASTRAL_DOWNLOAD\" &&",
+        "deno eval \"$ASTRAL_BINARY\""
+      ],
+      "env": {
+        "ASTRAL_DOWNLOAD": "await import('@engine/utils/browser.ts').then(({Browser}) => Browser.getBinary('chrome'))",
+        "ASTRAL_BINARY": "await import('@engine/utils/browser.ts').then(async ({Browser}) => console.log(Deno.env.get('CHROME_BIN') || await Browser.getBinary('chrome')))"
+      },
+      "deno": {
+        "eval": {
+          "quiet": true,
+          "permissions": {
+            "net": [
+              "googlechromelabs.github.io/chrome-for-testing",
+              "edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing"
+            ],
+            "write": [
+              ".cache"
+            ],
+            "env": [
+              "CHROME_BIN"
+            ]
+          }
+        }
+      }
+    },
+    "get:cache": {
+      "description": "🏗️ Get cache path",
+      "task": [
+        "deno eval \"$GET_CACHE_DIRECTORY\""
+      ],
+      "env": {
+        "GET_CACHE_DIRECTORY": "await import('x/cache_dir@0.2.0/mod.ts').then(({default:mod}) => console.log(mod()))"
+      },
+      "deno": {
+        "eval": {
+          "quiet": true,
+          "permissions": {
+            "env": true
+          }
+        }
+      }
+    }
+  }
+}
